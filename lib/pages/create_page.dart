@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:responsipraktpm/models/movie_model.dart';
-import 'package:responsipraktpm/services/movie_Service.dart';
+import 'package:responsipraktpm/services/movie_service.dart';
 import 'package:responsipraktpm/pages/home_page.dart';
 
 class CreateMoviePage extends StatefulWidget {
@@ -17,34 +17,37 @@ class _CreateMoviePageState extends State<CreateMoviePage> {
   final genre = TextEditingController();
   final director = TextEditingController();
   final synopsis = TextEditingController();
+  final image = TextEditingController();
+  final url = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
 
-  Future<void> _createClothing(BuildContext context) async {
+  Future<void> _createMovie(BuildContext context) async {
     if (!_formKey.currentState!.validate()) return;
 
     try {
       Movie newMovie = Movie(
         title: title.text.trim(),
-        year: int.parse(year.text),
-        rating: double.parse(rating.text),
+        year: int.tryParse(year.text),
+        rating: double.tryParse(rating.text),
         genre: genre.text.trim(),
         director: director.text.trim(),
         synopsis: synopsis.text.trim(),
+        imgUrl: image.text.trim(),
+        movieUrl: url.text.trim(),
       );
 
-      final response = await Movie.createMovie(newMovie);
+      final response = await MovieService.createMovie(newMovie);
 
-      if (response["status"] == "Success") {
+      if (response == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Berhasil menambah film baru")),
         );
-        Navigator.pop(context);
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const HomePage()),
         );
       } else {
-        throw Exception(response["message"]);
+        throw Exception(response);
       }
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,7 +71,7 @@ class _CreateMoviePageState extends State<CreateMoviePage> {
                   controller: year,
                   label: "Tahun",
                   keyboardType: TextInputType.number),
-                  _buildTextField(
+              _buildTextField(
                 controller: rating,
                 label: "Rating",
                 keyboardType: TextInputType.number,
@@ -82,10 +85,16 @@ class _CreateMoviePageState extends State<CreateMoviePage> {
               _buildTextField(controller: genre, label: "Genre"),
               _buildTextField(controller: director, label: "Director"),
               _buildTextField(controller: synopsis, label: "Sinopsis"),
+              _buildTextField(controller: image, label: "URL Gambar"),
+              _buildTextField(controller: url, label: "URL Website Film"),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: () => _createClothing(context),
-                child: const Text("Tambah Pakaian"),
+                onPressed: () => _createMovie(context),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child:
+                    const Text("Tambah Film", style: TextStyle(fontSize: 16)),
               ),
             ],
           ),
@@ -107,7 +116,7 @@ class _CreateMoviePageState extends State<CreateMoviePage> {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
         validator: validator ??
             (value) {

@@ -1,7 +1,7 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:responsipraktpm/pages/home_page.dart';
 import 'package:responsipraktpm/pages/login_page.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/material.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,10 +21,14 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Aplikasi Tugas',
       debugShowCheckedModeBanner: false,
-      initialRoute: isLoggedIn ? 'pages/home' : 'pages/login',
+      theme: ThemeData(
+        useMaterial3: true,
+        primarySwatch: Colors.blue,
+      ),
+      home: isLoggedIn ? const HomePage() : const LoginPage(),
       routes: {
-        'pages/login': (context) => LoginPage(),
-        'pages/home': (context) => HomePage(),
+        '/login': (context) => const LoginPage(),
+        '/home': (context) => const HomePage(),
       },
     );
   }

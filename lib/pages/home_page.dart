@@ -4,6 +4,7 @@ import 'package:responsipraktpm/models/movie_model.dart';
 import 'package:responsipraktpm/pages/create_page.dart';
 import 'package:responsipraktpm/pages/edit_page.dart';
 import 'package:responsipraktpm/pages/detail_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -13,10 +14,24 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  Future<List<Movie>> getData() async {
-    final response = await ClothingApi.getMovie();
-    final model = MovieModel.fromJson(response);
-    return model.data ?? [];
+  late Future<List<Movie>> _moviesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _moviesFuture = MovieService.getMovies();
+  }
+
+  void _refresh() {
+    setState(() {
+      _moviesFuture = MovieService.getMovies();
+    });
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   @override
@@ -24,97 +39,102 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Daftar Film"),
+        actions: [
+          IconButton(
+            onPressed: _logout,
+            icon: const Icon(Icons.logout),
+          ),
+        ],
       ),
       body: FutureBuilder<List<Movie>>(
-        future: getData(),
+        future: _moviesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return const Center(child: Text("Terjadi kesalahan saat mengambil data."));
           }
 
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text("Data film kosong."));
           }
 
-          final clothings = snapshot.data!;
+          final movies = snapshot.data!;
 
-          return GridView.builder(
+          return ListView.builder(
             padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 3 / 4,
-            ),
-            itemCount: clothings.length,
+            itemCount: movies.length,
             itemBuilder: (context, index) {
-              final item = clothings[index];
-              return GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => DetailMoviePage(id: item.id!),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
+              final item = movies[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 4,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DetailMoviePage(id: item.id!),
                       ),
-                    ],
+                    );
+                  },
+                  title: Text(
+                    item.title ?? '-',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  child: Column(
+                  subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.title ?? "-",
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text("Judul: ${item.title ?? '-'}"),
-                      Text("Tahun: ${item.year ?? 0}"),
-                      Text(item.title ?? "-",
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
-                      Text("Judul: ${item.title ?? '-'}"),
                       Text("Tahun: ${item.year ?? '-'}"),
-                      Text("Rating: Rp${item.rating ?? 0}"),
-                      Text("Sinopsis: ${item.synopsis ?? 0}"),
-                      const Spacer(),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      EditPage(id: item.id!),
+                      Text("Rating: ${item.rating ?? '-'}"),
+                    ],
+                  ),
+                  trailing: Wrap(
+                    spacing: 8,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => EditPage(id: item.id!),
+                            ),
+                          ).then((_) => _refresh());
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          final confirmed = await showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text("Hapus Film"),
+                              content: const Text("Yakin ingin menghapus film ini?"),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text("Batal"),
                                 ),
-                              );
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete),
-                            color: Colors.red,
-                            onPressed: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      DeleteMoviePage(id: item.id!),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text("Hapus"),
                                 ),
-                              );
-                              setState(() {});
-                            },
-                          ),
-                        ],
+                              ],
+                            ),
+                          );
+
+                          if (confirmed == true) {
+                            await MovieService.deleteMovie(item.id!);
+                            _refresh();
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -125,12 +145,12 @@ class _HomePageState extends State<HomePage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const CreateMoviePage(),
-            ),
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateMoviePage()),
           );
+          _refresh();
         },
         child: const Icon(Icons.add),
       ),

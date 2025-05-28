@@ -6,21 +6,21 @@ import 'package:responsipraktpm/pages/home_page.dart';
 class EditPage extends StatefulWidget {
   final int id;
 
-  const EditingPage({super.key, required this.id});
+  const EditPage({super.key, required this.id});
 
   @override
-  State<EditPage> createState() => _EditClothingPageState();
+  State<EditPage> createState() => _EditPageState();
 }
 
-class _EditClothingPageState extends State<EditPage> {
-  final Title = TextEditingController();
-  final Year = TextEditingController();
-  final color = TextEditingController();
+class _EditPageState extends State<EditPage> {
+  final title = TextEditingController();
+  final year = TextEditingController();
   final rating = TextEditingController();
   final genre = TextEditingController();
   final director = TextEditingController();
   final synopsis = TextEditingController();
-  factory
+  final image = TextEditingController();
+  final url = TextEditingController();
 
   final _formKey = GlobalKey<FormState>();
   bool _isDataLoaded = false;
@@ -31,29 +31,27 @@ class _EditClothingPageState extends State<EditPage> {
     try {
       Movie updatedMovie = Movie(
         id: widget.id,
-        title: Title.text.trim(),
-        year: int.tryParse(rating.text),
+        title: title.text.trim(),
+        year: int.tryParse(year.text),
         rating: double.tryParse(rating.text),
         genre: genre.text.trim(),
         director: director.text.trim(),
-        synopsis: synopsis.text.trim(),,
+        synopsis: synopsis.text.trim(),
+        imgUrl: image.text.trim(),
+        movieUrl: url.text.trim(),
       );
 
-      final response =
-          await ClothingApi.updateMovie(updatedMovie, widget.id);
+      final response = await MovieService.updateMovie(updatedMovie, widget.id);
 
-      if (response["status"] == "Success") {
+      if (response == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text("Berhasil mengubah Film ${updatedMovie.title}")),
+          SnackBar(content: Text("Berhasil mengubah Film ${updatedMovie.title}")),
         );
-        Navigator.pop(context);
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomePage()),
         );
       } else {
-        throw Exception(response["message"]);
+        throw Exception(response);
       }
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,45 +63,59 @@ class _EditClothingPageState extends State<EditPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Update Film"), centerTitle: true),
+      appBar: AppBar(title: const Text("Edit Film")),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: FutureBuilder(
-          future: Movie.getMovieById(widget.id),
+          future: MovieService.getMovieById(widget.id),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Text("Error: ${snapshot.error}");
+            } else if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasData) {
               if (!_isDataLoaded) {
-                _isDataLoaded = true;
-                final movie = Movie.fromJson(snapshot.data!["data"]);
-                Title.text = movie.title ?? '';
-                Year.text = movie.year?.toString() ?? '';
+                Movie movie = snapshot.data!;
+                title.text = movie.title ?? '';
+                year.text = movie.year?.toString() ?? '';
                 rating.text = movie.rating?.toString() ?? '';
                 genre.text = movie.genre ?? '';
                 director.text = movie.director ?? '';
                 synopsis.text = movie.synopsis ?? '';
+                image.text = movie.imgUrl ?? '';
+                url.text = movie.movieUrl ?? '';
+                _isDataLoaded = true;
               }
 
               return Form(
                 key: _formKey,
                 child: ListView(
                   children: [
-                    _buildTextField(controller: Title, label: "Judul Film"),
+                    _buildTextField(controller: title, label: "Judul"),
+                    _buildTextField(controller: year, label: "Tahun", keyboardType: TextInputType.number),
+                    _buildTextField(
+                      controller: rating,
+                      label: "Rating",
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        final val = double.tryParse(value ?? '');
+                        if (val == null) return "Rating harus berupa angka";
+                        if (val < 0 || val > 5) return "Rating harus 0 - 5";
+                        return null;
+                      },
+                    ),
                     _buildTextField(controller: genre, label: "Genre"),
-                    _buildTextField(
-                        controller: Year,
-                        label: "Tahun",
-                        keyboardType: TextInputType.number),
-                    _buildTextField(controller: director, label: "Direktor"),
+                    _buildTextField(controller: director, label: "Director"),
                     _buildTextField(controller: synopsis, label: "Sinopsis"),
-                    _buildTextField(
-                        controller: rating,
-                        label: "Rating",
-                        keyboardType: TextInputType.number),
+                    _buildTextField(controller: image, label: "URL Gambar"),
+                    _buildTextField(controller: url, label: "URL Website Film"),
+                    const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: () => _updateMovie(context),
-                      child: const Text("Update Film"),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: const Text("Simpan Perubahan", style: TextStyle(fontSize: 16)),
                     ),
                   ],
                 ),
@@ -121,6 +133,7 @@ class _EditClothingPageState extends State<EditPage> {
     required TextEditingController controller,
     required String label,
     TextInputType? keyboardType,
+    String? Function(String?)? validator,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -129,14 +142,15 @@ class _EditClothingPageState extends State<EditPage> {
         keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return "$label tidak boleh kosong";
-          }
-          return null;
-        },
+        validator: validator ??
+            (value) {
+              if (value == null || value.trim().isEmpty) {
+                return "$label tidak boleh kosong";
+              }
+              return null;
+            },
       ),
     );
   }
